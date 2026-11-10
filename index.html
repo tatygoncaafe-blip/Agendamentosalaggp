@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agendamento - Sala de Reunião GGP</title>
+
+<!-- Firebase SDKs (Compat) limpos e corretos -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Segoe UI, Arial, sans-serif;
+}
+
+body{
+    background:#f4f6f9;
+}
+
+.header{
+    background:linear-gradient(
+        135deg,
+        #3F7FC5,
+        #6AA5E0
+    );
+    color:white;
+    padding:20px;
+    text-align:center;
+    box-shadow:0 2px 5px rgba(0,0,0,.2);
+}
+.header-content{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    max-width:1400px;
+    margin:auto;
+    gap:20px;
+}
+
+.logo-geap{
+    height:110px;
+    background:white;
+    padding:12px 20px;
+    border-radius:12px;
+    box-shadow:0 2px 8px rgba(0,0,0,.15);
+}
+
+.logo-ggp{
+    height:90px;
+    background:white;
+    padding:10px;
+    border-radius:12px;
+    box-shadow:0 2px 8px rgba(0,0,0,.15);
+}
+.header-center{
+    flex:1;
+    text-align:center;
+}
+
+.header-center h1{
+    margin:0;
+    font-size:36px;
+}
+
+.header-center p{
+    margin-top:5px;
+    font-size:18px;
+}
+
+@media(max-width:900px){
+
+    .header-content{
+        flex-direction:column;
+    }
+
+    .logo-geap,
+    .logo-ggp{
+        height:55px;
+    }
+
+    .header-center h1{
+        font-size:28px;
+    }
+
+}
+.container{
+    display:grid;
+    grid-template-columns:1fr 420px;
+    gap:20px;
+    padding:20px;
+}
+
+.card{
+    background:white;
+    border-radius:12px;
+    box-shadow:0 3px 10px rgba(0,0,0,.1);
+    padding:20px;
+}
+
+.calendar-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:15px;
+}
+
+.calendar-header button{
+    background:#005A9C;
+    color:white;
+    border:none;
+    padding:8px 12px;
+    border-radius:8px;
+    cursor:pointer;
+}
+
+.calendar{
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    gap:5px;
+}
+
+.day-name{
+    font-weight:bold;
+    text-align:center;
+    padding:10px;
+    background:#eaf1f8;
+    border-radius:6px;
+}
+
+.day{
+    min-height:80px;
+    border:1px solid #ddd;
+    border-radius:8px;
+    padding:8px;
+    cursor:pointer;
+    background:white;
+}
+
+.day:hover{
+    background:#eef7ff;
+}
+
+.day.selected{
+    background:#cce7ff;
+    border:2px solid #005A9C;
+}
+
+.day.has-booking{
+    background:#dff4df;
+}
+
+.form-group{
+    margin-bottom:15px;
+}
+
+label{
+    display:block;
+    margin-bottom:5px;
+    font-weight:600;
+}
+
+input{
+    width:100%;
+    padding:10px;
+    border:1px solid #ccc;
+    border-radius:8px;
+}
+
+button.save{
+    width:100%;
+    background:#005A9C;
+    color:white;
+    border:none;
+    padding:12px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:16px;
+}
+
+button.save:hover{
+    background:#00457a;
+}
+
+.booking-list{
+    margin-top:20px;
+}
+
+.booking-item{
+    background:#f3f8ff;
+    border-left:5px solid #005A9C;
+    padding:12px;
+    margin-bottom:12px;
+    border-radius:8px;
+    line-height:1.6;
+}
+
+.selected-date{
+    color:#005A9C;
+    font-size:18px;
+    font-weight:bold;
+    margin-bottom:15px;
+}
+
+.empty{
+    color:#888;
+    text-align:center;
+    padding:20px;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+
+    <div class="header-content">
+
+        <img
+            src="Logo_Universidade_GEAP_Aprovado-1 (1).png"
+            alt="GEAP Saúde"
+            class="logo-geap">
+
+        <div class="header-center">
+            <h1>📅 Sala de Reunião GGP</h1>
+            <p>Portal Corporativo de Agendamento</p>
+        </div>
+
+        <img
+            src="imagem.png"
+            alt="GGP"
+            class="logo-ggp">
+
+    </div>
+
+</div>
+
+<div class="container">
+
+    <div class="card">
+        <div class="calendar-header">
+            <button onclick="changeMonth(-1)">◀️</button>
+            <h2 id="monthYear"></h2>
+            <button onclick="changeMonth(1)">▶️</button>
+        </div>
+        <div class="calendar" id="calendar"></div>
+    </div>
+
+    <div class="card">
+        <div class="selected-date" id="selectedDate">
+            Selecione uma data
+        </div>
+
+        <div class="form-group">
+            <label>Título da Reunião</label>
+            <input type="text" id="titulo" placeholder="Ex.: Reunião de Planejamento Estratégico">
+        </div>
+
+        <div class="form-group">
+            <label>Nome do Solicitante</label>
+            <input type="text" id="nome">
+        </div>
+
+        <div class="form-group">
+            <label>Setor</label>
+            <input type="text" id="setor">
+        </div>
+
+        <div class="form-group">
+            <label>Horário Inicial</label>
+            <input type="time" id="inicio">
+        </div>
+
+        <div class="form-group">
+            <label>Horário Final</label>
+            <input type="time" id="fim">
+        </div>
+
+        <button class="save" onclick="salvarReserva()">
+            Reservar Sala
+        </button>
+
+        <div class="booking-list">
+            <h3>Reservas da Data</h3>
+            <div id="listaReservas"></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// ==========================================
+// CONFIGURAÇÃO DO FIREBASE
+// ==========================================
+const firebaseConfig = {
+    apiKey: "AIzaSyCn-2sIE5_hD3BCl_SwbWArSf5rWLLogKc",
+    authDomain: "portal-de-agendamento-74aef.firebaseapp.com",
+    projectId: "portal-de-agendamento-74aef",
+    storageBucket: "portal-de-agendamento-74aef.firebasestorage.app",
+    messagingSenderId: "177276186748",
+    appId: "1:177276186748:web:fdc285da61c658182699f9",
+    measurementId: "G-EZQWDK79BS"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+let currentDate = new Date();
+let selectedDate = null;
+let reservasCache = {}; 
+
+const diasSemana = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+
+// Renderiza o calendário imediatamente na tela
+function renderCalendar(){
+    const calendar = document.getElementById("calendar");
+    calendar.innerHTML="";
+
+    diasSemana.forEach(dia=>{
+        const el=document.createElement("div");
+        el.className="day-name";
+        el.innerText=dia;
+        calendar.appendChild(el);
+    });
+
+    const year=currentDate.getFullYear();
+    const month=currentDate.getMonth();
+
+    document.getElementById("monthYear").innerText =
+    currentDate.toLocaleDateString('pt-BR',{
+        month:'long',
+        year:'numeric'
+    });
+
+    const firstDay = new Date(year,month,1).getDay();
+    const lastDate = new Date(year,month+1,0).getDate();
+
+    for(let i=0;i<firstDay;i++){
+        calendar.appendChild(document.createElement("div"));
+    }
+
+    for(let day=1;day<=lastDate;day++){
+        const data = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        const div=document.createElement("div");
+        div.className="day";
+
+        const reservas = reservasCache[data] || [];
+
+        if(reservas.length>0){
+            div.classList.add("has-booking");
+        }
+
+        div.innerHTML = `
+    <strong>${day}</strong><br>
+    <small>${reservas.length} reserva(s)</small>
+`;
+
+        div.onclick=()=>{
+            selecionarData(data,div);
+        }
+
+        calendar.appendChild(div);
+    }
+}
+
+// Busca os dados do Firebase em segundo plano e atualiza o calendário
+async function carregarMesNoFirebase() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    
+    const inicioMes = `${year}-${String(month+1).padStart(2,'0')}-01`;
+    const fimMes = `${year}-${String(month+1).padStart(2,'0')}-${String(new Date(year,month+1,0).getDate()).padStart(2,'0')}`;
+
+    try {
+        const snapshot = await db.collection("reservas")
+            .where("data", ">=", inicioMes)
+            .where("data", "<=", fimMes)
+            .get();
+
+        reservasCache = {};
+        snapshot.forEach(doc => {
+            const r = doc.data();
+            if (!reservasCache[r.data]) {
+                reservasCache[r.data] = [];
+            }
+            reservasCache[r.data].push({ id: doc.id, ...r });
+        });
+
+        renderCalendar();
+        if (selectedDate) {
+            carregarReservas();
+        }
+    } catch (error) {
+        console.error("Erro ao carregar reservas:", error);
+    }
+}
+
+function selecionarData(data,elemento){
+    document.querySelectorAll(".day").forEach(d=>d.classList.remove("selected"));
+    if(elemento) elemento.classList.add("selected");
+
+    selectedDate=data;
+
+    document.getElementById("selectedDate").innerText =
+    "Data Selecionada: " + new Date(data+"T00:00:00").toLocaleDateString("pt-BR");
+
+    carregarReservas();
+}
+
+async function salvarReserva(){
+    if(!selectedDate){
+        alert("Selecione uma data no calendário.");
+        return;
+    }
+
+    const titulo = document.getElementById("titulo").value.trim();
+    const nome = document.getElementById("nome").value.trim();
+    const setor = document.getElementById("setor").value.trim();
+    const inicio = document.getElementById("inicio").value;
+    const fim = document.getElementById("fim").value;
+
+    if(!titulo || !nome || !setor || !inicio || !fim){
+        alert("Preencha todos os campos.");
+        return;
+    }
+
+    if(inicio >= fim){
+        alert("O horário final deve ser maior que o inicial.");
+        return;
+    }
+
+    let reservas = reservasCache[selectedDate] || [];
+
+    let conflito = reservas.some(r =>
+        inicio < r.fim && fim > r.inicio
+    );
+
+    if(conflito){
+        alert("Já existe uma reserva conflitante neste horário.");
+        return;
+    }
+
+    try {
+        await db.collection("reservas").add({
+            data: selectedDate,
+            titulo,
+            nome,
+            setor,
+            inicio,
+            fim
+        });
+
+        alert("Reserva realizada com sucesso!");
+
+        document.getElementById("titulo").value="";
+        document.getElementById("nome").value="";
+        document.getElementById("setor").value="";
+        document.getElementById("inicio").value="";
+        document.getElementById("fim").value="";
+
+        carregarMesNoFirebase();
+    } catch (error) {
+        alert("Erro ao salvar reserva: " + error.message);
+    }
+}
+
+function carregarReservas(){
+    const lista = document.getElementById("listaReservas");
+    let reservas = reservasCache[selectedDate] || [];
+
+    if(reservas.length === 0){
+        lista.innerHTML = '<div class="empty">Nenhuma reserva nesta data.</div>';
+        return;
+    }
+
+    reservas.sort((a,b)=> a.inicio.localeCompare(b.inicio));
+
+    lista.innerHTML = "";
+
+    reservas.forEach((r)=>{
+        lista.innerHTML += `
+        <div class="booking-item">
+            <strong style="display:block; color:#005A9C; font-size:18px; margin-bottom:8px;">
+                📌 ${r.titulo}
+            </strong>
+            <strong>🕒 ${r.inicio} às ${r.fim}</strong>
+            <br>👤 Solicitante: ${r.nome}
+            <br>🏢 Setor: ${r.setor}
+            <br>
+            <button onclick="excluirReserva('${r.id}')" style="margin-top:8px; padding:5px 10px; background:#dc3545; color:white; border:none; border-radius:6px; cursor:pointer;">
+                Excluir
+            </button>
+        </div>
+        `;
+    });
+}
+
+async function excluirReserva(id){
+    if(!confirm("Tem certeza que deseja excluir esta reserva?")) return;
+
+    try {
+        await db.collection("reservas").doc(id).delete();
+        carregarMesNoFirebase();
+    } catch (error) {
+        alert("Erro ao excluir: " + error.message);
+    }
+}
+
+function changeMonth(valor){
+    currentDate.setMonth(currentDate.getMonth()+valor);
+    carregarMesNoFirebase();
+}
+
+// Inicialização
+renderCalendar();
+carregarMesNoFirebase();
+</script>
+
+</body>
+</html>
